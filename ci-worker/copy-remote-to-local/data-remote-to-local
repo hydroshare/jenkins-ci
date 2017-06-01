@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+
+###################################################
+#
+# Jenkins job must define the following prior to running
+#
+# export REMOTE_IRODS_URI=
+# export LOCAL_STORAGE_URI=
+# export IRODS_RESC_LIST=
+# export AVU_RESC_LIST=
+# export IRODS_ENV_FILE_LOC=
+###################################################
+
+
+export IRODS_ENVIRONMENT_FILE=${IRODS_ENV_FILE_LOC}
+
+echo "REMOVE: ${LOCAL_STORAGE_URI}"
+echo "  - rm -rf ${LOCAL_STORAGE_URI}"
+#rm -rf ${LOCAL_STORAGE_URI}
+
+echo "CREATE: ${LOCAL_STORAGE_URI}"
+echo "  - mkdir -p ${LOCAL_STORAGE_URI}"
+#mkdir -p ${LOCAL_STORAGE_URI}
+
+echo "GET RESOURCE LIST FROM: ${REMOTE_IRODS_URI}"
+echo "  - ils | rev | cut -d '/' -f 1 | rev > ${IRODS_RESC_LIST}"
+#ils  ${REMOTE_IRODS_URI} | rev | cut -d '/' -f 1 | rev > ${IRODS_RESC_LIST}
+
+echo "IRSYNC FROM: i:${REMOTE_IRODS_URI} TO: ${LOCAL_STORAGE_URI}"
+while read resc; do
+    if [[ "${resc}" != "bags" ]]; then
+        echo "  - irsync -r i:${REMOTE_IRODS_URI}/${resc}/ ${LOCAL_STORAGE_URI}/${resc}/"
+        #irsync -r i:${REMOTE_IRODS_URI}/${resc}/ ${LOCAL_STORAGE_URI}/${resc}/
+    else
+        echo "IGNORE: not copying i:${REMOTE_IRODS_URI}/${resc}/"
+    fi
+done < <(tail -n +2 ${IRODS_RESC_LIST})
+
+# For each resource collection in $IRODS_RESC_LIST, attempt to extract the AVU information
+> ${AVU_RESC_LIST}
+echo "GET AVUs for ${REMOTE_IRODS_URI}"
+while read resc; do
+    if [[ "${resc}" != "bags" ]]; then
+        echo "  - imeta ls -C ${REMOTE_IRODS_URI}/${resc} >> ${AVU_RESC_LIST}"
+        #imeta ls -C ${REMOTE_IRODS_URI}/${resc} >> ${AVU_RESC_LIST}
+    else
+        echo "  - IGNORE: ${REMOTE_IRODS_URI}/${resc}/"
+    fi
+done < <(tail -n +2 ${IRODS_RESC_LIST})
+
+# Copy iRODS resource and AVU list to local storage directory
+#cp ${IRODS_RESC_LIST} ${LOCAL_STORAGE_URI}/${IRODS_RESC_LIST}
+#cp ${AVU_RESC_LIST} ${LOCAL_STORAGE_URI}/${AVU_RESC_LIST}
+
+exit 0;
